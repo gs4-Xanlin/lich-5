@@ -93,7 +93,7 @@ module Infomon
         .insert_conflict(:replace)
         .insert(*args)
   end
-  
+
   def self.upsert(key, value)
     upsert_sql = "INSERT OR REPLACE INTO %s (`key`, `value`) VALUES (%s, %s)
       on conflict(`key`) do update set value = excluded.value;" % [self.db.literal(self.table_name), self.db.literal(key), self.db.literal(value)]
@@ -105,7 +105,7 @@ module Infomon
   end
 
   def self.upsert_batch(*blob)
-    #TODO: batch per 500, but since we aren't doing 500+ pairs this is fine.
+    # TODO: batch per 500, but since we aren't doing 500+ pairs this is fine.
     values = blob.map { |pairs|
       pairs.map { |key, value|
         (value.is_a?(Integer) or value.is_a?(String)) or fail "upsert_batch only works with Integer or String types"
