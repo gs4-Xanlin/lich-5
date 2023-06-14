@@ -84,7 +84,7 @@ module Infomon
     return nil if val.nil?
     return true if val.to_s == "true"
     return false if val.to_s == "false"
-    return val.to_i if val.to_s =~ /^\d+$/ || val =~ /^-\d+$/
+    return val.to_i if val.to_s =~ /^\d+$/ || val.to_s =~ /^-\d+$/
     return "#{val}" if val
   end
 
