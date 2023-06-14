@@ -4,7 +4,7 @@
 # Supports Ruby 3.X builds
 #
 #     maintainer: elanthia-online
-#   contributors: Tillmen, Shaelun, Athias
+#   contributors: Tillmen, Shaelun, Athias, Doug, Ondreian, Tysong, Xanlin
 #           game: Gemstone
 #           tags: core
 #       required: Lich > 5.6.2
@@ -40,7 +40,7 @@ module Infomon
 
   def self.table_name
     self.context!
-    ("%s.%s" % [XMLData.game, XMLData.name]).to_sym
+    ("%s_%s" % [XMLData.game, XMLData.name]).to_sym
   end
 
   def self.reset!
@@ -56,7 +56,7 @@ module Infomon
     @db.create_table?(self.table_name) do
       string :key, primary_key: true
 
-      blob :value
+      string :value
       index :key, unique: true
     end
 
@@ -88,34 +88,34 @@ module Infomon
     return "#{val}" if val
   end
 
-  def self.upsert(*args)
+  def self.delete_and_insert(*args)
     self.table
         .insert_conflict(:replace)
         .insert(*args)
   end
+  
+  def self.upsert(key, value)
+    upsert_sql = "INSERT OR REPLACE INTO %s (`key`, `value`) VALUES (%s, %s)
+      on conflict(`key`) do update set value = excluded.value;" % [self.db.literal(self.table_name), self.db.literal(key), self.db.literal(value)]
+    self.db.run(upsert_sql)
+  end
 
   def self.set(key, value)
-    self.upsert(key: self._key(key), value: self._validate!(key, value))
+    self.upsert(self._key(key), self._validate!(key, value))
   end
 
   def self.upsert_batch(*blob)
-    upserts = blob.map { |pairs|
+    #TODO: batch per 500, but since we aren't doing 500+ pairs this is fine.
+    values = blob.map { |pairs|
       pairs.map { |key, value|
         (value.is_a?(Integer) or value.is_a?(String)) or fail "upsert_batch only works with Integer or String types"
-        %[INSERT OR REPLACE INTO %s (`key`, `value`) VALUES (%s, %s);] % [
-          self.db.literal(self.table_name),
-          self.db.literal(self._key(key)),
-          self.db.literal(value)
-        ]
+        "(%s, %s)" % [self.db.literal(self._key(key)), self.db.literal(value)]
       }
-    }.join("\n")
-    self.db.run <<~Sql
-      BEGIN TRANSACTION;
-      #{upserts}
-      COMMIT
-    Sql
+    }.join(", ")
+    upsert_sql = "INSERT OR REPLACE INTO %s (`key`, `value`) VALUES %s
+      on conflict(`key`) do update set value = excluded.value;" % [self.db.literal(self.table_name), values]
+    self.db.run(upsert_sql)
   end
-
   require_relative "parser"
   require_relative "cli"
 end
